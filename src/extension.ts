@@ -54,7 +54,7 @@ async function renameAll() {
     }
     console.log(symbolMap);
     symbolMap.forEach((symbolMap, uri) => {
-        symbolMap.forEach(symbol => {
+        symbolMap.forEach(async symbol => {
             if (!renamedSet.has(symbol.name)) {
                 renamedSet.add(symbol.name);
                 let newName = getRandomAnimalName();
@@ -63,9 +63,13 @@ async function renameAll() {
                 }
                 usedAnimalSet.add(newName);            
                 let t = (vscode.commands.executeCommand("vscode.executeDocumentRenameProvider", uri, symbol.selectionRange.start, newName) as 
-                Thenable<vscode.WorkspaceEdit[]>).then(edit => {
+                Thenable<vscode.WorkspaceEdit>).then(edit => {
+                    if (edit) {
+                        vscode.workspace.applyEdit(edit);
+                    }
                     console.log(edit);
                 });                
+                await Promise.resolve(t);
             }
         });
     });
