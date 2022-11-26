@@ -15,19 +15,19 @@ async function getURIs(): Promise<vscode.Uri[]> {
 
 function getSymbolsFromURI(symbolSet : Set<vscode.DocumentSymbol>, uri: vscode.Uri) : Thenable<void> {
     let t = (vscode.commands.executeCommand("vscode.executeDocumentSymbolProvider", uri) as  Thenable<vscode.DocumentSymbol[]>)
-    .then((symbols: vscode.DocumentSymbol[]) => {
-        //console.log(symbols);
-        for (const symbol of symbols) {
-            symbolSet = recursiveAdd(symbolSet, symbol);
-        }
-    });
+        .then((symbols: vscode.DocumentSymbol[]) => {
+            //console.log(symbols);
+            for (const symbol of symbols) {
+                symbolSet = recursiveAdd(symbolSet, symbol);
+            }
+        });
     return t;
 }
 
 function recursiveAdd(set : Set<vscode.DocumentSymbol>, symbol : vscode.DocumentSymbol): Set<vscode.DocumentSymbol> {
     set.add(symbol);
     if (symbol.children.length > 0) {
-        symbol.children.forEach(element => {            
+        symbol.children.forEach(element => {
             set = recursiveAdd(set, element);
         });
     }
@@ -40,12 +40,36 @@ async function renameAll() {
         return;
     }
 
-    let symbolSet = new Set<vscode.DocumentSymbol>();
+    // Set of symbols to rename
+    let symbolMap = new Map<vscode.Uri, Set<vscode.DocumentSymbol>>();
+    // Set of symbols we have already renamed
+    let renamedSet = new Set<String>();
+    // Set of animal names we have already used
+    let usedAnimalSet = new Set<String>();
     let uris = await getURIs();
     for (var uri of uris) {
+        let symbolSet = new Set<vscode.DocumentSymbol>();
         await Promise.resolve(getSymbolsFromURI(symbolSet, uri));
-    }    
-    console.log(symbolSet);
+        symbolMap.set(uri, symbolSet);
+    }
+    console.log(symbolMap);
+    symbolMap.forEach((symbolMap, uri) => {
+        symbolMap.forEach(symbol => {
+            if (!renamedSet.has(symbol.name)) {
+                renamedSet.add(symbol.name);
+                let newName = getRandomAnimalName();
+                while(usedAnimalSet.has(newName)) {
+                    newName = getRandomAnimalName();
+                }
+                usedAnimalSet.add(newName);            
+                let t = (vscode.commands.executeCommand("vscode.executeDocumentRenameProvider", uri, symbol.selectionRange.start, newName) as 
+                Thenable<vscode.WorkspaceEdit[]>).then(edit => {
+                    console.log(edit);
+                });                
+            }
+        });
+    });
+
 };
 
 // This method is called when your extension is activated
@@ -75,3 +99,71 @@ export async function activate(context: vscode.ExtensionContext) {
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
+
+function getRandomAnimalName(): String {
+    let names = [
+        "Frog",
+        "Crocodile",
+        "Alligator",
+        "Monitor lizard",
+        "Salamander",
+        "Toad",
+        "Newt",
+        "Iguana",
+        "Snake",
+        "Snake",
+        "Lion",
+        "Tiger",
+        "Goat",
+        "Horse",
+        "Donkey",
+        "Dog",
+        "Cat",
+        "Pig",
+        "Panther",
+        "Leopard",
+        "Cheetah",
+        "Cow",
+        "Walrus",
+        "Otter",
+        "Giraffe",
+        "Sheep",
+        "Rabbit",
+        "Monkey",
+        "Snake",
+        "Crocodile",
+        "Alligator",
+        "Tortoise",
+        "Turtle",
+        "Lizard",
+        "Chameleon",
+        "Basilisk",
+        "Gecko",
+        "Herring",
+        "Crab",
+        "Brill",
+        "Haddock",
+        "Eel",
+        "Whale",
+        "Salmon",
+        "Sardines",
+        "Pike",
+        "Carp",
+        "Shark",
+        "Tuna",
+        "Pufferfish",
+        "Flamingo",
+        "Crow",
+        "Hen",
+        "Vulture",
+        "Eagle",
+        "Peacock",
+        "Pigeon",
+        "Emu",
+        "Ostrich",
+        "Dove",
+        "Stork",
+    ]
+    let index = Math.floor(Math.random() * names.length);
+    return names[index];
+}
