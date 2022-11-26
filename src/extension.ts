@@ -34,6 +34,43 @@ function recursiveAdd(set : Set<vscode.DocumentSymbol>, symbol : vscode.Document
     return set;
 }
 
+async function renameSymbols(renamedSet : Set<String>, uri: vscode.Uri): Promise<boolean> {
+        var symbolSet = new Set<vscode.DocumentSymbol>();
+        let s = getSymbolsFromURI(symbolSet, uri);
+        await Promise.resolve(s);
+        console.log(symbolSet);
+        var symbolToRename = null;
+        for (var symbol of symbolSet) {
+            if (!renamedSet.has(symbol.name)) {
+                symbolToRename = symbol;
+                break;
+            }
+        }
+        if (symbolToRename === null) {
+            return false;
+        }        
+        let newName = getRandomAnimalName();
+        while(renamedSet.has(newName)) {
+            newName = getRandomAnimalName();
+        }
+        console.log(symbolToRename);
+        try {
+            let t = (vscode.commands.executeCommand("vscode.executeDocumentRenameProvider", uri, symbolToRename.selectionRange.start, newName) as
+            Thenable<vscode.WorkspaceEdit>).then(edit => {
+                if (edit) {
+                    vscode.workspace.applyEdit(edit);
+                }
+                console.log(edit);
+            });
+            await Promise.resolve(t);
+           renamedSet.add(newName);
+        } catch(e) {
+            renamedSet.add(symbolToRename.name);
+            console.log(e);
+        }
+        return true;
+}
+
 async function renameAll() {
     if (!vscode.window.activeTextEditor) {
         vscode.window.showWarningMessage('There must be an active text editor');
@@ -48,33 +85,10 @@ async function renameAll() {
     let usedAnimalSet = new Set<String>();
     let uris = await getURIs();
     for (var uri of uris) {
-        let symbolSet = new Set<vscode.DocumentSymbol>();
-        await Promise.resolve(getSymbolsFromURI(symbolSet, uri));
-        symbolMap.set(uri, symbolSet);
+        renameSymbols(renamedSet, uri);
+        renameSymbols(renamedSet, uri);
     }
     console.log(symbolMap);
-    for (var pair of symbolMap) {
-        let uri = pair[0];
-        let symbolSet = pair[1];
-        for (var symbol of symbolSet) {
-            if (!renamedSet.has(symbol.name)) {
-                renamedSet.add(symbol.name);
-                let newName = getRandomAnimalName();
-                while(usedAnimalSet.has(newName)) {
-                    newName = getRandomAnimalName();
-                }
-                usedAnimalSet.add(newName);            
-                let t = (vscode.commands.executeCommand("vscode.executeDocumentRenameProvider", uri, symbol.selectionRange.start, newName) as 
-                Thenable<vscode.WorkspaceEdit>).then(edit => {
-                    if (edit) {
-                        vscode.workspace.applyEdit(edit);
-                    }
-                    console.log(edit);
-                });                
-                await Promise.resolve(t);
-            }
-        }
-    }
 };
 
 // This method is called when your extension is activated
