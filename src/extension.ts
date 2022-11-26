@@ -2,28 +2,55 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-const renameAll = () => {
+async function getURIs(): Promise<vscode.Uri[]> {
+    var toReturn = new Array<vscode.Uri>();
+    if(vscode.workspace.workspaceFolders === undefined) {
+        return toReturn;
+    }
+    let p = vscode.workspace.findFiles("**/*.java").then(uris => {
+        return uris;
+    });
+    return Promise.resolve(p);
+}
+
+function getSymbolsFromURI(symbolSet : Set<vscode.DocumentSymbol>, uri: vscode.Uri) : Thenable<void> {
+    let t = (vscode.commands.executeCommand("vscode.executeDocumentSymbolProvider", uri) as  Thenable<vscode.DocumentSymbol[]>)
+    .then((symbols: vscode.DocumentSymbol[]) => {
+        //console.log(symbols);
+        for (const symbol of symbols) {
+            symbolSet = recursiveAdd(symbolSet, symbol);
+        }
+    });
+    return t;
+}
+
+function recursiveAdd(set : Set<vscode.DocumentSymbol>, symbol : vscode.DocumentSymbol): Set<vscode.DocumentSymbol> {
+    set.add(symbol);
+    if (symbol.children.length > 0) {
+        symbol.children.forEach(element => {            
+            set = recursiveAdd(set, element);
+        });
+    }
+    return set;
+}
+
+async function renameAll() {
     if (!vscode.window.activeTextEditor) {
         vscode.window.showWarningMessage('There must be an active text editor');
         return;
     }
 
-    let symbolSet = new Set<vscode.SymbolInformation>();
-
-    (vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", "") as Thenable<vscode.SymbolInformation[]>)
-        .then((symbols: vscode.SymbolInformation[]) => {
-            for (const symbol of symbols) {
-                symbolSet.add(symbol);
-            }
-        });
-
-    const allSymbolsString = [...symbolSet].map((symbol : vscode.SymbolInformation) => symbol.name).join("\n");
-    vscode.window.showInformationMessage(allSymbolsString);
+    let symbolSet = new Set<vscode.DocumentSymbol>();
+    let uris = await getURIs();
+    for (var uri of uris) {
+        await Promise.resolve(getSymbolsFromURI(symbolSet, uri));
+    }    
+    console.log(symbolSet);
 };
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
@@ -38,8 +65,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Hello World from zoobfuscator!');
     });
 
-    let disposableRenameAll = vscode.commands.registerCommand('zoobfuscator.renameAll', () => {
-        renameAll();
+    let disposableRenameAll = vscode.commands.registerCommand('zoobfuscator.renameAll', async () => {
+        await renameAll();
     });
 
     context.subscriptions.push(disposableRenameAll);
