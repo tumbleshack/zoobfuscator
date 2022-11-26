@@ -53,8 +53,10 @@ async function renameAll() {
         symbolMap.set(uri, symbolSet);
     }
     console.log(symbolMap);
-    symbolMap.forEach((symbolMap, uri) => {
-        symbolMap.forEach(async symbol => {
+    for (var pair of symbolMap) {
+        let uri = pair[0];
+        let symbolSet = pair[1];
+        for (var symbol of symbolSet) {
             if (!renamedSet.has(symbol.name)) {
                 renamedSet.add(symbol.name);
                 let newName = getRandomAnimalName();
@@ -71,9 +73,8 @@ async function renameAll() {
                 });                
                 await Promise.resolve(t);
             }
-        });
-    });
-
+        }
+    }
 };
 
 // This method is called when your extension is activated
